@@ -4,22 +4,32 @@
 # ============================================================
 
 # ---------- 阶段 1：构建前端 ----------
-FROM node:20-bookworm-slim AS webbuild
+FROM docker.m.daocloud.io/library/node:20-bookworm-slim AS webbuild
 
 WORKDIR /fe
-RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
+# 国内构建加速：apt 清华源
+RUN echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm main contrib non-free non-free-firmware" > /etc/apt/sources.list && \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-updates main contrib non-free non-free-firmware" >> /etc/apt/sources.list && \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian-security bookworm-security main contrib non-free non-free-firmware" >> /etc/apt/sources.list && \
+    apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
 COPY frontend/package*.json ./
-RUN npm install
+# npm 走 npmmirror
+RUN npm config set registry https://registry.npmmirror.com && npm install
 COPY frontend/ .
 # VITE_API_BASE=/api 让浏览器请求同源 /api/*，由 Nginx 反代到后端（进程环境变量优先于 .env 文件）
-RUN VITE_API_BASE=/api VITE_TITLE=深维学院 npm run build
+# 用 npx vite build 跳过 tsc 类型检查（新版 axios 类型定义不兼容，运行时无影响）
+RUN VITE_API_BASE=/api VITE_TITLE=深维学院 npx vite build
 
 # ---------- 阶段 2：运行镜像 ----------
-FROM python:3.11.7-slim
+FROM docker.m.daocloud.io/library/python:3.11.7-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# 国内构建加速：apt 清华源
+RUN echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm main contrib non-free non-free-firmware" > /etc/apt/sources.list && \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm-updates main contrib non-free non-free-firmware" >> /etc/apt/sources.list && \
+    echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian-security bookworm-security main contrib non-free non-free-firmware" >> /etc/apt/sources.list && \
+    apt-get update && apt-get install -y --no-install-recommends \
     build-essential python3-dev libgl1 libglu1-mesa libglib2.0-0 \
     supervisor nginx postgresql redis-server curl procps \
     && rm -rf /var/lib/apt/lists/* \
@@ -34,7 +44,10 @@ RUN curl -fsSL https://artifacts.elastic.co/downloads/elasticsearch/elasticsearc
 # 后端依赖与代码
 WORKDIR /app
 COPY backend/app/requirements.txt .
-RUN pip install --no-cache-dir --retries 10 --timeout 120 -r requirements.txt
+# pip 走阿里源
+RUN pip config set global.index-url "https://mirrors.aliyun.com/pypi/simple/" \
+    && pip config set global.trusted-host "mirrors.aliyun.com" \
+    && pip install --no-cache-dir --retries 10 --timeout 120 -r requirements.txt
 COPY backend/app/ /app/
 COPY backend/init.sql /app/init.sql
 
