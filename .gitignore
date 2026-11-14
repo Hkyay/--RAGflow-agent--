@@ -1,0 +1,44 @@
+# ===== 环境与秘密（最高优先级）=====
+.env
+.env.*
+!.env.example
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# ===== Node =====
+node_modules/
+dist/
+*.log
+npm-debug.log*
+
+# ===== 大文件 / 可再生数据 =====
+backend/nltk_data/
+**/.cache/
+backend/storage/
+storage/
+
+# ===== 个人笔记与媒体（仅本地保留）=====
+wsl启动rag项目/
+.screenshots/
+项目剖析.md
+设计决策剖析.md
+关键组件.md
+
+# ===== 编辑器 / 系统 =====
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ===== Docker 运行数据 =====
+pg_data/
+gsk_esdata01/
+redis_data/
+
+# ===== 原作者嵌套仓库备份（backend/.git 移出存档，不入库）=====
+backend_dotgit_backup/
