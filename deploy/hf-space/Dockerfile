@@ -31,7 +31,7 @@ RUN echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian/ bookworm main contrib
     echo "deb https://mirrors.tuna.tsinghua.edu.cn/debian-security bookworm-security main contrib non-free non-free-firmware" >> /etc/apt/sources.list && \
     apt-get update && apt-get install -y --no-install-recommends \
     build-essential python3-dev libgl1 libglu1-mesa libglib2.0-0 \
-    supervisor nginx postgresql redis-server curl procps \
+    supervisor nginx postgresql redis-server curl procps util-linux \
     && rm -rf /var/lib/apt/lists/* \
     && rm -f /etc/nginx/sites-enabled/default
 
@@ -50,6 +50,8 @@ RUN pip config set global.index-url "https://mirrors.aliyun.com/pypi/simple/" \
     && pip install --no-cache-dir --retries 10 --timeout 120 -r requirements.txt
 COPY backend/app/ /app/
 COPY backend/init.sql /app/init.sql
+# NLTK 语料（punkt/punkt_tab/wordnet/omw-1.4）：构建前需放在本目录 nltk_data/ 下
+COPY nltk_data /usr/local/share/nltk_data
 
 # 前端静态产物 + 各配置文件
 COPY --from=webbuild /fe/dist /var/www/html
@@ -67,7 +69,9 @@ RUN useradd -m -u 1000 user \
     && chown -R user:user /app /opt/elasticsearch /var/www/html /home/user \
                           /var/lib/nginx /var/log/nginx /var/run/nginx.pid
 
-USER user
+# 必须显式指定 DashScope 兼容模式地址：否则 LangChain 的 ChatOpenAI 会退回 api.openai.com（403 地区不支持）
+ENV DASHSCOPE_BASE_URL="https://dashscope.aliyuncs.com/compatible-mode/v1"
 
+# 不写死 USER：云平台卷多为 root 属主，entrypoint 会以 root 修正归属后再降权到 user 运行
 EXPOSE 7860
 ENTRYPOINT ["/entrypoint.sh"]
